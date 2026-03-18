@@ -9,108 +9,50 @@
         :root { --bg: #FDFCF8; --point: #556B2F; --white: #ffffff; }
         body { font-family: 'Pretendard', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; }
         h1 { font-family: 'Noto Serif KR', serif; text-align: center; color: var(--point); font-size: 2.2rem; margin-bottom: 30px; }
-
         .dashboard { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 350px 1fr; gap: 25px; }
         .box { background: var(--white); padding: 20px; border-radius: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
-
         .admin-only { display: none; }
-
-        .shelf-section { margin-top: 25px; }
         .shelf-title { font-family: 'Noto Serif KR'; color: var(--point); border-bottom: 2px solid var(--point); padding-bottom: 10px; margin-bottom: 15px; }
-        
         .book-grid { display: flex; gap: 15px; flex-wrap: wrap; justify-content: flex-start; }
         .book-card { flex: 0 0 calc(20% - 12px); background: #fff; border: 1px solid #eee; border-radius: 15px; padding: 12px; box-sizing: border-box; cursor: pointer; transition: 0.3s; }
-        .book-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(85, 107, 47, 0.1); }
         .book-card img { width: 100%; height: 220px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; }
-        
         .card-title { font-size: 13px; font-weight: bold; height: 36px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-        
-        #log-form { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); z-index: 1001; width: 400px; }
-        .overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); z-index:999; }
-        
-        .btn { padding: 8px 12px; border-radius: 8px; border: none; cursor: pointer; font-size: 12px; font-weight: bold; }
         #admin-lock { position: fixed; bottom: 20px; right: 20px; font-size: 18px; cursor: pointer; background: #eee; color: #aaa; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; z-index: 2000; border: none; }
+        input, button { border-radius: 8px; border: 1px solid #ddd; padding: 10px; }
+        .add-btn { background: var(--point); color: white; width: 100%; cursor: pointer; font-weight: bold; border: none; margin-top: 10px; }
     </style>
 </head>
 <body>
-
     <h1>📚 Heyjin's Book Archive</h1>
-
     <div class="dashboard">
         <div class="side-panel">
-            <div class="box admin-only" id="search-box">
-                <h3>🔍 책 검색 및 추가</h3>
-                <div style="display:flex; gap:5px; margin-bottom:15px;">
-                    <input type="text" id="query" placeholder="책 제목 입력..." style="flex:1; padding:10px; border-radius:10px; border:1px solid #ddd;">
-                    <button onclick="searchBooks()" style="background:var(--point); color:white; border:none; border-radius:10px; padding:0 15px; cursor:pointer;">검색</button>
-                </div>
-                <div id="results" style="max-height: 300px; overflow-y: auto; font-size: 12px; border-top:1px solid #eee; padding-top:10px;">
-                    </div>
+            <div class="box admin-only">
+                <h3>✍️ 직접 기록하기</h3>
+                <input type="text" id="manual-title" placeholder="책 제목" style="width:100%; box-sizing:border-box; margin-bottom:10px;">
+                <input type="text" id="manual-cover" placeholder="표지 이미지 주소(URL)" style="width:100%; box-sizing:border-box; margin-bottom:10px;">
+                <input type="date" id="manual-date" style="width:100%; box-sizing:border-box; margin-bottom:10px;">
+                <button class="add-btn" onclick="addBookManual()">내 서재에 추가</button>
+                <p style="font-size:11px; color:#999; margin-top:10px;">* 구글이나 알라딘에서 검색 후 '이미지 주소 복사'를 이용하세요!</p>
             </div>
-            <div class="box" style="margin-top:20px;">
-                <h3 style="color:#855D21;">🎁 읽을 책 (Wishlist)</h3>
-                <div id="wish-list"></div>
-            </div>
+            <div class="box" style="margin-top:20px;"><h3>🎁 읽고 싶은 책</h3><div id="wish-list"></div></div>
         </div>
-
         <div class="main-content">
-            <div class="box">
-                <h3>📅 독서 달력</h3>
-                <div id="calendar"></div>
-            </div>
-            <div class="shelf-section">
+            <div class="box"><h3>📅 독서 달력</h3><div id="calendar"></div></div>
+            <div class="shelf-section" style="margin-top:25px;">
                 <div class="shelf-title">✅ 다 읽은 서재</div>
-                <div class="book-grid" id="read-list"></div>
+                <div id="read-list" class="book-grid"></div>
             </div>
         </div>
     </div>
-
     <button id="admin-lock" onclick="toggleAdmin()">🔒</button>
-    <div class="overlay" id="overlay" onclick="closeAllPopups()"></div>
-
-    <div id="log-form">
-        <h3 id="form-title">독서 기록</h3>
-        <p id="selected-book-title" style="font-weight:bold; color:var(--point); margin-bottom:15px;"></p>
-        <label style="font-size:12px;">완독일 선택</label>
-        <input type="date" id="end-date" style="width:100%; padding:10px; margin-top:5px; margin-bottom:20px; border:1px solid #ddd; border-radius:8px;">
-        <button class="btn" style="background:var(--point); color:white; width:100%;" onclick="submitLog()">서재에 담기</button>
-    </div>
 
     <script>
-        const TTB_KEY = 'ttbimhj03111147001';
-        const ADMIN_PW = "0311"; 
+        const ADMIN_PW = "0311"; //
         let isAdmin = false; 
         let myBooks = JSON.parse(localStorage.getItem('hyejinBooks')) || [];
-        let tempBook = null; let calendar = null;
+        let calendar = null;
 
         window.onload = () => { initCalendar(); renderArchive(); };
-
-        async function searchBooks() {
-            const query = document.getElementById('query').value;
-            if(!query) return;
-            
-            document.getElementById('results').innerHTML = "검색 중...";
-            
-            // 승인 페이지 없이도 작동할 확률이 높은 다른 중계 서버를 사용합니다.
-            const url = `https://api.allorigins.win/get?url=${encodeURIComponent('https://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=' + TTB_KEY + '&Query=' + query + '&MaxResults=5&output=js&Version=20131101')}`;
-            
-            try {
-                const resp = await fetch(url);
-                const data = await resp.json();
-                const items = JSON.parse(data.contents).item;
-                
-                let html = '';
-                items.forEach(b => {
-                    html += `<div style="padding:10px; border-bottom:1px solid #f9f9f9; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-weight:bold; flex:1; margin-right:10px;">${b.title}</span>
-                        <button class="btn" style="background:#eee;" onclick="openLogForm('${b.title.replace(/'/g, "\\'")}', '${b.cover}')">추가</button>
-                    </div>`;
-                });
-                document.getElementById('results').innerHTML = html || "검색 결과가 없습니다.";
-            } catch(e) {
-                document.getElementById('results').innerHTML = "검색 오류! 잠시 후 다시 시도해주세요.";
-            }
-        }
 
         function toggleAdmin() {
             const pw = prompt("관리자 비밀번호를 입력하세요.");
@@ -131,30 +73,19 @@
             myBooks.sort((a,b) => new Date(b.end) - new Date(a.end)).forEach(book => {
                 readHtml += `<div class="book-card"><img src="${book.cover}"><div class="card-title">${book.title}</div></div>`;
             });
-            document.getElementById('read-list').innerHTML = readHtml || '<p style="color:#999; text-align:center; width:100%;">기록이 없습니다.</p>';
+            document.getElementById('read-list').innerHTML = readHtml || '<p style="color:#999;">기록이 없습니다.</p>';
         }
 
-        function openLogForm(t, c) {
-            tempBook = {title: t, cover: c};
-            document.getElementById('selected-book-title').innerText = t;
-            document.getElementById('end-date').value = new Date().toISOString().split('T')[0];
-            document.getElementById('overlay').style.display = 'block';
-            document.getElementById('log-form').style.display = 'block';
-        }
-
-        function closeAllPopups() { document.querySelectorAll('#log-form, .overlay').forEach(el => el.style.display = 'none'); }
-
-        function submitLog() {
-            const end = document.getElementById('end-date').value;
-            if(tempBook && end) {
-                myBooks.push({...tempBook, end: end});
-                localStorage.setItem('hyejinBooks', JSON.stringify(myBooks));
-                renderArchive();
-                calendar.addEvent({title: `📖 ${tempBook.title}`, start: end, backgroundColor: '#556B2F'});
-                closeAllPopups();
-                alert("서재에 등록되었습니다! 📚");
-            }
-        }
-    </script>
-</body>
-</html>
+        function addBookManual() {
+            const title = document.getElementById('manual-title').value;
+            const cover = document.getElementById('manual-cover').value;
+            const end = document.getElementById('manual-date').value;
+            if(!title || !cover || !end) { alert("모든 칸을 채워주세요!"); return; }
+            
+            myBooks.push({title, cover, end});
+            localStorage.setItem('hyejinBooks', JSON.stringify(myBooks));
+            renderArchive();
+            calendar.addEvent({title: `📖 ${title}`, start: end, backgroundColor: '#556B2F'});
+            
+            // 입력창 초기화
+            document.getElementById('manual-title').value = '';
