@@ -18,8 +18,11 @@
         .book-card img { width: 100%; height: 220px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; }
         .card-title { font-size: 13px; font-weight: bold; height: 36px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
         #admin-lock { position: fixed; bottom: 20px; right: 20px; font-size: 18px; cursor: pointer; background: #eee; color: #aaa; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; z-index: 2000; border: none; }
-        input, button { border-radius: 8px; border: 1px solid #ddd; padding: 10px; }
-        .add-btn { background: var(--point); color: white; width: 100%; cursor: pointer; font-weight: bold; border: none; margin-top: 10px; }
+        
+        /* 검색 결과 스타일 */
+        #results { margin-top:15px; max-height: 250px; overflow-y: auto; font-size: 12px; }
+        .result-item { padding: 8px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .add-btn { background: var(--point); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -27,14 +30,14 @@
     <div class="dashboard">
         <div class="side-panel">
             <div class="box admin-only">
-                <h3>✍️ 직접 기록하기</h3>
-                <input type="text" id="manual-title" placeholder="책 제목" style="width:100%; box-sizing:border-box; margin-bottom:10px;">
-                <input type="text" id="manual-cover" placeholder="표지 이미지 주소(URL)" style="width:100%; box-sizing:border-box; margin-bottom:10px;">
-                <input type="date" id="manual-date" style="width:100%; box-sizing:border-box; margin-bottom:10px;">
-                <button class="add-btn" onclick="addBookManual()">내 서재에 추가</button>
-                <p style="font-size:11px; color:#999; margin-top:10px;">* 구글이나 알라딘에서 검색 후 '이미지 주소 복사'를 이용하세요!</p>
+                <h3>🔍 스마트 책 검색</h3>
+                <div style="display:flex; gap:5px;">
+                    <input type="text" id="query" placeholder="책 제목 입력..." style="flex:1; padding:8px; border-radius:8px; border:1px solid #ddd;">
+                    <button onclick="searchBooks()" style="background:var(--point); color:white; border:none; border-radius:8px; padding:0 10px; cursor:pointer;">검색</button>
+                </div>
+                <div id="results"></div>
             </div>
-            <div class="box" style="margin-top:20px;"><h3>🎁 읽고 싶은 책</h3><div id="wish-list"></div></div>
+            <div class="box" style="margin-top:20px;"><h3>🎁 읽을 책</h3><div id="wish-list"></div></div>
         </div>
         <div class="main-content">
             <div class="box"><h3>📅 독서 달력</h3><div id="calendar"></div></div>
@@ -47,12 +50,51 @@
     <button id="admin-lock" onclick="toggleAdmin()">🔒</button>
 
     <script>
-        const ADMIN_PW = "0311"; //
+        const TTB_KEY = 'ttbimhj03111147001';
+        const ADMIN_PW = "0311";
         let isAdmin = false; 
         let myBooks = JSON.parse(localStorage.getItem('hyejinBooks')) || [];
         let calendar = null;
 
         window.onload = () => { initCalendar(); renderArchive(); };
+
+        async function searchBooks() {
+            const query = document.getElementById('query').value;
+            if(!query) return;
+            document.getElementById('results').innerHTML = "서버 연결 중...";
+
+            // [멋짐 포인트] 알라딘 API를 외부 중계 서버를 통해 호출합니다.
+            const url = `https://api.allorigins.win/get?url=${encodeURIComponent('https://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=' + TTB_KEY + '&Query=' + query + '&MaxResults=5&output=js&Version=20131101')}`;
+
+            try {
+                const resp = await fetch(url);
+                const data = await resp.json();
+                const items = JSON.parse(data.contents).item;
+                
+                let html = '';
+                items.forEach(b => {
+                    html += `<div class="result-item">
+                        <span style="font-weight:bold; flex:1;">${b.title}</span>
+                        <button class="add-btn" onclick="addBook('${b.title.replace(/'/g, "\\'")}', '${b.cover}')">추가</button>
+                    </div>`;
+                });
+                document.getElementById('results').innerHTML = html || "검색 결과가 없습니다.";
+            } catch(e) {
+                // 에러 발생 시 혜진님께 안내
+                document.getElementById('results').innerHTML = "서버 응답이 늦네요. 잠시 후 다시 시도하거나 [CORS 승인 페이지]를 확인해주세요!";
+            }
+        }
+
+        function addBook(title, cover) {
+            const end = prompt("완독일(YYYY-MM-DD)", new Date().toISOString().split('T')[0]);
+            if(end) {
+                myBooks.push({title, cover, end});
+                localStorage.setItem('hyejinBooks', JSON.stringify(myBooks));
+                renderArchive();
+                calendar.addEvent({title: `📖 ${title}`, start: end, backgroundColor: '#556B2F'});
+                alert("서재에 담겼습니다! 📚");
+            }
+        }
 
         function toggleAdmin() {
             const pw = prompt("관리자 비밀번호를 입력하세요.");
@@ -74,23 +116,6 @@
                 readHtml += `<div class="book-card"><img src="${book.cover}"><div class="card-title">${book.title}</div></div>`;
             });
             document.getElementById('read-list').innerHTML = readHtml || '<p style="color:#999;">기록이 없습니다.</p>';
-        }
-
-        function addBookManual() {
-            const title = document.getElementById('manual-title').value;
-            const cover = document.getElementById('manual-cover').value;
-            const end = document.getElementById('manual-date').value;
-            if(!title || !cover || !end) { alert("모든 칸을 채워주세요!"); return; }
-            
-            myBooks.push({title, cover, end});
-            localStorage.setItem('hyejinBooks', JSON.stringify(myBooks));
-            renderArchive();
-            calendar.addEvent({title: `📖 ${title}`, start: end, backgroundColor: '#556B2F'});
-            
-            // 입력창 초기화
-            document.getElementById('manual-title').value = '';
-            document.getElementById('manual-cover').value = '';
-            alert("서재에 등록되었습니다! 📚");
         }
     </script>
 </body>
