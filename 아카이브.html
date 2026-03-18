@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Heyjin's Book Archive</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@700&family=Pretendard:wght@400;600&display=swap" rel="stylesheet">
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <style>
+        :root { --bg: #FDFCF8; --point: #556B2F; --white: #ffffff; }
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; }
+        h1 { font-family: 'Noto Serif KR', serif; text-align: center; color: var(--point); font-size: 2.2rem; margin-bottom: 30px; }
+
+        .dashboard { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 350px 1fr; gap: 25px; }
+        .box { background: var(--white); padding: 20px; border-radius: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
+
+        /* 관리자 모드 제어 */
+        .admin-only { display: none; }
+
+        .shelf-section { margin-top: 25px; }
+        .shelf-title { font-family: 'Noto Serif KR'; color: var(--point); border-bottom: 2px solid var(--point); padding-bottom: 10px; margin-bottom: 15px; }
+        
+        .book-grid { display: flex; gap: 15px; flex-wrap: wrap; justify-content: flex-start; }
+        .book-card { flex: 0 0 calc(20% - 12px); background: #fff; border: 1px solid #eee; border-radius: 15px; padding: 12px; box-sizing: border-box; cursor: pointer; transition: 0.3s; }
+        .book-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(85, 107, 47, 0.1); }
+        .book-card img { width: 100%; height: 220px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; }
+        
+        .card-title { font-size: 13px; font-weight: bold; height: 36px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        
+        .pagination { display: flex; justify-content: center; gap: 8px; margin-top: 20px; }
+        .page-btn { padding: 5px 12px; border: 1px solid var(--point); background: white; color: var(--point); border-radius: 5px; cursor: pointer; }
+        .page-btn.active { background: var(--point); color: white; }
+
+        #detail-popup, #log-form { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); z-index: 1001; width: 450px; }
+        .overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); z-index:999; }
+        
+        .btn { padding: 6px 10px; border-radius: 8px; border: none; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-edit { background: #f0f0f0; color: #666; }
+        .btn-delete { background: #ffebee; color: #c62828; }
+
+        /* [수정] 관리자 잠금 버튼 - 우측 하단, 눈에 덜 띄는 색상 */
+        #admin-lock { 
+            position: fixed; bottom: 20px; right: 20px; 
+            font-size: 18px; cursor: pointer; 
+            background: #eee; color: #aaa; width: 40px; height: 40px; 
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            z-index: 2000; transition: 0.3s; border: none;
+        }
+        #admin-lock:hover { color: #333; background: #ddd; }
+    </style>
+</head>
+<body>
+
+    <h1>📚 Hyejin's Book Archive</h1>
+
+    <div class="dashboard">
+        <div class="side-panel">
+            <div class="box admin-only" id="search-box" style="margin-bottom:20px;">
+                <h3>🔍 검색 & 추가</h3>
+                <div style="display:flex; gap:5px; margin-bottom:15px;">
+                    <input type="text" id="query" placeholder="책 제목 입력..." style="flex:1; padding:8px; border-radius:5px; border:1px solid #ddd;">
+                    <button onclick="searchBooks()" style="background:var(--point); color:white; border:none; border-radius:5px; padding:0 15px; cursor:pointer;">검색</button>
+                </div>
+                <div id="results" style="max-height: 200px; overflow-y: auto; font-size: 12px;"></div>
+            </div>
+            <div class="box">
+                <h3 style="color:#855D21;">🎁 읽을 책 (Wishlist)</h3>
+                <div id="wish-list"></div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="box">
+                <h3>📅 독서 달력</h3>
+                <div id="calendar"></div>
+            </div>
+            <div class="shelf-section">
+                <div class="shelf-title">✅ 다 읽은 서재</div>
+                <div class="book-grid" id="read-list"></div>
+                <div id="pagination-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <button id="admin-lock" onclick="toggleAdmin()">🔒</button>
+
+    <div class="overlay" id="overlay" onclick="closeAllPopups()"></div>
+
+    <div id="detail-popup">
+        <h2 id="detail-title">제목</h2>
+        <div style="display:flex; gap:20px;">
+            <img id="detail-cover" style="width:140px; border-radius:10px;">
+            <div style="flex:1;">
+                <p>⏳ <span id="detail-dates"></span></p>
+                <p>⭐ <span id="detail-rating" style="color:#ff9800;"></span></p>
+                <div id="detail-comment" style="background:#f9f9f9; padding:15px; border-radius:10px; font-style:italic; font-size:13px;"></div>
+                <div class="admin-only" style="margin-top:20px; display:flex; gap:10px;">
+                    <button id="edit-btn-action" class="btn btn-edit">수정</button>
+                    <button id="delete-btn-action" class="btn btn-delete">삭제</button>
+                </div>
+            </div>
+        </div>
+        <div style="text-align:right; margin-top:20px;"><button class="btn" onclick="closeAllPopups()">닫기</button></div>
+    </div>
+
+    <div id="log-form">
+        <h3 id="form-title">독서 기록</h3>
+        <input type="date" id="start-date" style="width:100%; margin-bottom:10px;">
+        <input type="date" id="end-date" style="width:100%; margin-bottom:10px;">
+        <select id="rating" style="width:100%; margin-bottom:10px;"><option value="⭐⭐⭐⭐⭐">⭐⭐⭐⭐⭐</option><option value="⭐⭐⭐⭐">⭐⭐⭐⭐</option><option value="⭐⭐⭐">⭐⭐⭐</option><option value="⭐⭐">⭐⭐</option><option value="⭐">⭐</option></select>
+        <textarea id="comment" rows="4" style="width:100%;" placeholder="한줄평"></textarea>
+        <button class="btn" style="background:var(--point); color:white; width:100%; margin-top:10px; padding:10px;" onclick="submitLog()">기록 저장</button>
+    </div>
+
+    <script>
+        const TTB_KEY = 'ttbimhj03111147001';
+        const ADMIN_PW = "0311"; // 비밀번호 설정
+        let isAdmin = false; 
+        let myBooks = JSON.parse(localStorage.getItem('hyejinBooks')) || [];
+        let tempBook = null; let editIndex = null; let calendar = null; let currentPage = 1; const itemsPerPage = 5;
+
+        window.onload = () => { initCalendar(); renderArchive(); };
+
+        function toggleAdmin() {
+            if(!isAdmin) {
+                const pw = prompt("관리자 비밀번호를 입력하세요.");
+                if(pw === ADMIN_PW) {
+                    isAdmin = true;
+                    document.getElementById('admin-lock').innerHTML = "🔓";
+                    document.getElementById('admin-lock').style.color = "#556B2F";
+                    alert("관리자 모드가 활성화되었습니다!");
+                } else if(pw !== null) {
+                    alert("비밀번호가 틀렸습니다.");
+                }
+            } else {
+                isAdmin = false;
+                document.getElementById('admin-lock').innerHTML = "🔒";
+                document.getElementById('admin-lock').style.color = "#aaa";
+                alert("관리자 모드가 해제되었습니다.");
+            }
+            renderArchive();
+        }
+
+        function initCalendar() {
+            calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+                initialView: 'dayGridMonth', locale: 'ko', height: 450,
+                events: myBooks.filter(b => b.status === '읽은 책').map(b => ({ title: `📖 ${b.title}`, start: b.end, allDay: true, backgroundColor: '#556B2F' })),
+                eventClick: (info) => {
+                    const book = myBooks.find(b => b.title === info.event.title.replace('📖 ', '') && b.status === '읽은 책');
+                    if(book) openDetailPopup(book);
+                }
+            });
+            calendar.render();
+        }
+
+        function renderArchive() {
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAdmin ? 'block' : 'none');
+            const allReadBooks = myBooks.map((b, i) => ({...b, originalIndex: i})).filter(b => b.status === '읽은 책').sort((a, b) => new Date(b.end) - new Date(a.end));
+            const totalPages = Math.ceil(allReadBooks.length / itemsPerPage);
+            const pagedBooks = allReadBooks.slice((currentPage-1)*itemsPerPage, currentPage*itemsPerPage);
+
+            let readHtml = '';
+            pagedBooks.forEach(book => {
+                readHtml += `<div class="book-card" onclick="openDetailPopup(myBooks[${book.originalIndex}])">
+                    <img src="${book.cover}"><div class="card-title">${book.title}</div>
+                    <div style="color:#ff9800; font-size:12px;">${book.rating}</div>
+                </div>`;
+            });
+            document.getElementById('read-list').innerHTML = readHtml || '<p style="text-align:center; width:100%;">기록이 없습니다.</p>';
+
+            let wishHtml = '';
+            myBooks.forEach((book, idx) => {
+                if(book.status === '읽을 책') {
+                    wishHtml += `<div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                        <img src="${book.cover}" width="30"><span style="font-size:12px; flex:1;">${book.title}</span>
+                        ${isAdmin ? `<button class="btn btn-delete" onclick="deleteBook(${idx})">×</button>` : ''}
+                    </div>`;
+                }
+            });
+            document.getElementById('wish-list').innerHTML = wishHtml;
+            let pageHtml = '<div class="pagination">';
+            for(let i=1; i<=totalPages; i++) pageHtml += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
+            document.getElementById('pagination-container').innerHTML = totalPages > 1 ? pageHtml + '</div>' : '';
+        }
+
+        function changePage(p) { currentPage = p; renderArchive(); }
+
+        function openDetailPopup(book) {
+            document.getElementById('detail-title').innerText = book.title;
+            document.getElementById('detail-cover').src = book.cover;
+            document.getElementById('detail-dates').innerText = `${book.start} ~ ${book.end}`;
+            document.getElementById('detail-rating').innerText = book.rating;
+            document.getElementById('detail-comment').innerText = book.comment || "코멘트 없음";
+            const idx = myBooks.indexOf(book);
+            document.getElementById('edit-btn-action').onclick = () => openLogForm(book.title, book.cover, idx);
+            document.getElementById('delete-btn-action').onclick = () => deleteBook(idx);
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('detail-popup').style.display = 'block';
+            renderArchive();
+        }
+
+        async function searchBooks() {
+            const query = document.getElementById('query').value;
+            const url = `https://cors-anywhere.herokuapp.com/http://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=${TTB_KEY}&Query=${encodeURIComponent(query)}&MaxResults=5&output=js&Version=20131101`;
+            try {
+                const resp = await fetch(url);
+                const data = await resp.json();
+                let html = '';
+                data.item.forEach(b => {
+                    html += `<div style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:5px;">
+                        <span style="font-size:11px; flex:1;">${b.title}</span>
+                        <div>
+                            <button class="btn btn-edit" onclick="openLogForm('${b.title.replace(/'/g, "\\'")}', '${b.cover}')">읽음</button>
+                            <button class="btn" style="background:#FFF4E5; color:#855D21;" onclick="addWish('${b.title.replace(/'/g, "\\'")}', '${b.cover}')">찜</button>
+                        </div>
+                    </div>`;
+                });
+                document.getElementById('results').innerHTML = html;
+            } catch(e) { alert("CORS 승인 페이지에서 버튼을 먼저 눌러주세요!"); }
+        }
+
+        function openLogForm(t, c, i = null) {
+            closeAllPopups(); editIndex = i; tempBook = {title:t, cover:c};
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('log-form').style.display = 'block';
+            if(i !== null) {
+                const b = myBooks[i];
+                document.getElementById('start-date').value = b.start;
+                document.getElementById('end-date').value = b.end;
+                document.getElementById('rating').value = b.rating;
+                document.getElementById('comment').value = b.comment;
+            }
+        }
+
+        function closeAllPopups() { document.querySelectorAll('#log-form, #detail-popup, .overlay').forEach(el => el.style.display = 'none'); }
+        function submitLog() {
+            const data = { ...tempBook, status: '읽은 책', start: document.getElementById('start-date').value, end: document.getElementById('end-date').value, rating: document.getElementById('rating').value, comment: document.getElementById('comment').value };
+            if(editIndex !== null) myBooks[editIndex] = data; else myBooks.push(data);
+            saveAndRefresh(); closeAllPopups();
+        }
+        function addWish(t, c) { myBooks.push({title:t, cover:c, status:'읽을 책'}); saveAndRefresh(); }
+        function deleteBook(i) { if(confirm("삭제하시겠습니까?")) { myBooks.splice(i, 1); saveAndRefresh(); closeAllPopups(); } }
+        function saveAndRefresh() { localStorage.setItem('hyejinBooks', JSON.stringify(myBooks)); renderArchive(); calendar.removeAllEvents(); calendar.addEventSource(myBooks.filter(b => b.status === '읽은 책').map(b => ({ title: `📖 ${b.title}`, start: b.end, allDay: true, backgroundColor: '#556B2F' }))); }
+    </script>
+</body>
+</html>
