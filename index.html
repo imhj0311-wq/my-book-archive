@@ -200,25 +200,27 @@
         }
 
         async function searchBooks() {
-            const query = document.getElementById('query').value;
-            const url = `https://cors-anywhere.herokuapp.com/http://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=${TTB_KEY}&Query=${encodeURIComponent(query)}&MaxResults=5&output=js&Version=20131101`;
-            try {
-                const resp = await fetch(url);
-                const data = await resp.json();
-                let html = '';
-                data.item.forEach(b => {
-                    html += `<div style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:5px;">
-                        <span style="font-size:11px; flex:1;">${b.title}</span>
-                        <div>
-                            <button class="btn btn-edit" onclick="openLogForm('${b.title.replace(/'/g, "\\'")}', '${b.cover}')">읽음</button>
-                            <button class="btn" style="background:#FFF4E5; color:#855D21;" onclick="addWish('${b.title.replace(/'/g, "\\'")}', '${b.cover}')">찜</button>
-                        </div>
-                    </div>`;
-                });
-                document.getElementById('results').innerHTML = html;
-            } catch(e) { alert("CORS 승인 페이지에서 버튼을 먼저 눌러주세요!"); }
-        }
-
+    const query = document.getElementById('query').value;
+    // 알라딘 주소를 https로 변경하여 보안 차단을 해결했습니다!
+    const url = `https://cors-anywhere.herokuapp.com/https://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=${TTB_KEY}&Query=${encodeURIComponent(query)}&MaxResults=5&output=js&Version=20131101`;
+    try {
+        const resp = await fetch(url);
+        const data = await resp.json();
+        let html = '';
+        data.item.forEach(b => {
+            html += `<div style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:5px;">
+                <span style="font-size:11px; flex:1;">${b.title}</span>
+                <div>
+                    <button class="btn btn-edit" onclick="openLogForm('${b.title.replace(/'/g, "\\'")}', '${b.cover}')">읽음</button>
+                    <button class="btn" style="background:#FFF4E5; color:#855D21;" onclick="addWish('${b.title.replace(/'/g, "\\'")}', '${b.cover}')">찜</button>
+                </div>
+            </div>`;
+        });
+        document.getElementById('results').innerHTML = html;
+    } catch(e) { 
+        alert("CORS 승인 페이지에서 버튼을 먼저 눌러주세요!"); 
+    }
+}
         function openLogForm(t, c, i = null) {
             closeAllPopups(); editIndex = i; tempBook = {title:t, cover:c};
             document.getElementById('overlay').style.display = 'block';
