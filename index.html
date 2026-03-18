@@ -120,4 +120,41 @@
         function initCalendar() {
             calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
                 initialView: 'dayGridMonth', locale: 'ko', height: 450,
-                events: myBooks.map(b => ({ title: `📖 ${b.title}`, start: b.
+                events: myBooks.map(b => ({ title: `📖 ${b.title}`, start: b.end, backgroundColor: '#556B2F' }))
+            });
+            calendar.render();
+        }
+
+        function renderArchive() {
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAdmin ? 'block' : 'none');
+            let readHtml = '';
+            myBooks.sort((a,b) => new Date(b.end) - new Date(a.end)).forEach(book => {
+                readHtml += `<div class="book-card"><img src="${book.cover}"><div class="card-title">${book.title}</div></div>`;
+            });
+            document.getElementById('read-list').innerHTML = readHtml || '<p style="color:#999; text-align:center; width:100%;">기록이 없습니다.</p>';
+        }
+
+        function openLogForm(t, c) {
+            tempBook = {title: t, cover: c};
+            document.getElementById('selected-book-title').innerText = t;
+            document.getElementById('end-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('log-form').style.display = 'block';
+        }
+
+        function closeAllPopups() { document.querySelectorAll('#log-form, .overlay').forEach(el => el.style.display = 'none'); }
+
+        function submitLog() {
+            const end = document.getElementById('end-date').value;
+            if(tempBook && end) {
+                myBooks.push({...tempBook, end: end});
+                localStorage.setItem('hyejinBooks', JSON.stringify(myBooks));
+                renderArchive();
+                calendar.addEvent({title: `📖 ${tempBook.title}`, start: end, backgroundColor: '#556B2F'});
+                closeAllPopups();
+                alert("서재에 등록되었습니다! 📚");
+            }
+        }
+    </script>
+</body>
+</html>
